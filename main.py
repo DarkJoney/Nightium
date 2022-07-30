@@ -1,5 +1,5 @@
 # Nightium by Dmytro Hlotenko / Powered by Python, OpenCL and libraw
-from engine.core import rawpy_test, raw_loader, stackImagesKeypointMatching
+from engine.core import rawpy_test, raw_loader, stackImagesKeypointMatching, stackProcessor
 
 
 def print_hi(name):
@@ -8,6 +8,7 @@ def print_hi(name):
     rawpy_test()
     #stackImagesECC(raw_loader())
     stackImagesKeypointMatching(raw_loader())
+    #stackProcessor(raw_loader())
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     print_hi('PyCharm')
