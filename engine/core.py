@@ -19,7 +19,7 @@ def stackImagesKeypointMatching(file_list):
     first_des = None
     for file in file_list:
         image = file
-        imageF = file.astype(np.float32) / 255
+        imageF = file.astype(np.float64) / 255
 
         # compute the descriptors with ORB
         kp = orb.detect(image, None)
@@ -39,9 +39,9 @@ def stackImagesKeypointMatching(file_list):
             matches = matcher.match(first_des, des)
             matches = sorted(matches, key=lambda x: x.distance)
 
-            src_pts = np.float32(
+            src_pts = np.float64(
                 [first_kp[m.queryIdx].pt for m in matches]).reshape(-1, 1, 2)
-            dst_pts = np.float32(
+            dst_pts = np.float64(
                 [kp[m.trainIdx].pt for m in matches]).reshape(-1, 1, 2)
 
             # Estimate perspective transformation
@@ -133,25 +133,55 @@ def stackProcessor(file_list):
     imageio.imsave('stack.tiff', stacked_image)
     end = timer()
     print(f'elapsed time: {end - start}')
+
+
+def raw_processor_multipass(i):
+    with rawpy.imread("rawtest/" + i) as raw:
+        print("Loading:" + str(i))
+        output = []
+        #output.append(raw.postprocess(demosaic_algorithm=rawpy.DemosaicAlgorithm.DCB, use_camera_wb=True))
+        print("Base RAW decoding...")
+        output.append(raw.postprocess(demosaic_algorithm=rawpy.DemosaicAlgorithm.DHT, use_camera_wb=True, fbdd_noise_reduction=rawpy.FBDDNoiseReductionMode.Light))
+        print("Highlight reconstruction pass...")
+        output.append(raw.postprocess(demosaic_algorithm=rawpy.DemosaicAlgorithm.DHT, use_camera_wb=True,  highlight_mode=9,
+                                      fbdd_noise_reduction=rawpy.FBDDNoiseReductionMode.Light))
+        print("50%...")
+        print("Additional AAHD RAW data formation...")
+        output.append(raw.postprocess(demosaic_algorithm=rawpy.DemosaicAlgorithm.AAHD, use_camera_wb=True))
+        print("Additional PPG RAW data formation...")
+        output.append(raw.postprocess(demosaic_algorithm=rawpy.DemosaicAlgorithm.PPG, use_camera_wb=True))
+        print("Multipass - done!")
+    return output
+
 def raw_processor(i):
     with rawpy.imread("rawtest/" + i) as raw:
         print("Loading:" + str(i))
-        rgb = raw.postprocess(demosaic_algorithm=rawpy.DemosaicAlgorithm.DHT, use_camera_wb=True)
-        return rgb
+        rgb = raw.postprocess(demosaic_algorithm=rawpy.DemosaicAlgorithm.DHT, use_camera_wb=True, fbdd_noise_reduction=rawpy.FBDDNoiseReductionMode.Light)
+    return rgb
 
 
-def raw_loader():
+def raw_loader(multi):
     files = os.listdir(r"C:\Users\darkj\PycharmProjects\Nightium\rawtest")
     raw_array = []
-    with Pool() as pool:
-        res = pool.map(raw_processor, files)
-    for i in res:
-        raw_array.append(i)
+    if multi == False:
+        print("Singlepass mode!")
+        with Pool() as pool:
+            res = pool.map(raw_processor, files)
+        for i in res:
+            raw_array.append(i)
+    elif multi == True:
+        print("Multipass enabled!")
+        with Pool() as pool:
+            res = pool.map(raw_processor_multipass, files)
+        for i in res:
+            for j in i:
+                raw_array.append(j)
     return raw_array
 
 
 def rawpy_test():
-    path = 'rawtest/DSC09429.ARW'
+    path = 'rawtest/DSC09275.ARW'
     with rawpy.imread(path) as raw:
-        rgb = raw.postprocess(demosaic_algorithm=rawpy.DemosaicAlgorithm.DHT, use_camera_wb=True)
+        rgb = raw.postprocess(demosaic_algorithm=rawpy.DemosaicAlgorithm.DHT, use_camera_wb=True, highlight_mode=2, fbdd_noise_reduction=rawpy.FBDDNoiseReductionMode.Light)
     imageio.imsave("DHT" + 'default.tiff', rgb)
+
